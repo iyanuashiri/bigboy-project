@@ -18,8 +18,8 @@
 
 ### docker
 1. Clone the repository `git clone https://github.com/iyanuashiri/bigboy-project.git`
-2. docker build -t classmatebot-backend .
-3. docker run -p 8000:8000 classmatebot-backend
+2. docker build -t bigboy-backend .
+3. docker run -p 8000:8000 bigboy-backend
 
 
 
@@ -56,3 +56,8 @@
 
 ## How to run celery
 1. uv run celery -A config.celery worker --loglevel=info --pool=solo
+
+
+## How to check the docs
+
+http://127.0.0.1:8000/api/schema/swagger-ui/

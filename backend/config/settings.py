@@ -26,7 +26,14 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["slightly-crisp-pheasant.ngrok-free.app", "localhost", "127.0.0.1", ]
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in config(
+        'ALLOWED_HOSTS',
+        default='localhost,127.0.0.1,.awsapprunner.com,.elb.amazonaws.com,.amazonaws.com',
+    ).split(',')
+    if h.strip()
+]
 
 
 # Application definition
@@ -48,11 +55,15 @@ INSTALLED_APPS = [
 
     'bigboy.accounts.apps.AccountsConfig',
     'bigboy.subjects.apps.SubjectsConfig',
+    'bigboy.sources.apps.SourcesConfig',
     'bigboy.chats.apps.ChatsConfig',
     'bigboy.quizzes.apps.QuizzesConfig',
+    'bigboy.reviews.apps.ReviewsConfig',
 ]
 
 MIDDLEWARE = [
+    # Before CommonMiddleware: App Runner probes use Host 169.254.x.x (link-local).
+    'config.middleware.AppRunnerLinkLocalHostMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     "corsheaders.middleware.CorsMiddleware",
@@ -97,7 +108,7 @@ if DATABASE_NAME != '':
             'USER': config('DATABASE_USER'),
             'PASSWORD': config('DATABASE_PASSWORD'),
             'HOST': config('DATABASE_HOST'),
-            'PORT': 5432,
+            'PORT': int(config('DATABASE_PORT', default=5432, cast=int)),
         }
     }
 else:
@@ -146,6 +157,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# User-uploaded source documents (RAG)
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -159,26 +173,26 @@ REST_FRAMEWORK = {
 # https://pypi.org/project/django-cors-headers/
 CORS_ALLOW_ALL_ORIGINS = True
 
-CELERY_BROKER_URL = config('CELERY_BROKER_URL')
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND')
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='memory://')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='cache+memory://')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
-REDIS_PASSWORD = config('REDIS_PASSWORD')
-REDIS_PORT = config('REDIS_PORT')
-REDIS_HOST = config('REDIS_HOST')
-REDIS_USERNAME = config('REDIS_USERNAME')
+REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
+REDIS_PORT = config('REDIS_PORT', default='6379')
+REDIS_HOST = config('REDIS_HOST', default='')
+REDIS_USERNAME = config('REDIS_USERNAME', default='')
 
 ##############################
 # DRF SPECTACULAR
 #################################
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'ClassmateBot API Documentation',
-    'DESCRIPTION': 'ClassmateBot API Documentation',
+    'TITLE': 'BigBoy API Documentation',
+    'DESCRIPTION': 'BigBoy API Documentation',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'CONTACT': {
-        'email': 'developers@classmatebot.com'
+        'email': 'developers@bigboy.com'
     },
     'SCHEMA_PATH_PREFIX': '/api/v1',
     # OTHER SETTINGS
@@ -189,10 +203,10 @@ SPECTACULAR_SETTINGS = {
 # Twilio settings 
 ##################################################################
             
-TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
-TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')
-TO_NUMBER = config('TO_NUMBER')
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
+TO_NUMBER = config('TO_NUMBER', default='')
 # TWILIO_SERVICE_SID = config('TWILIO_SERVICE_SID')
 
 
@@ -207,20 +221,27 @@ TO_NUMBER = config('TO_NUMBER')
 #
 ####################################################################
 
-META_ACCESS_TOKEN = config('META_ACCESS_TOKEN')
-META_PHONE_NUMBER_ID = config('META_PHONE_NUMBER_ID')
-META_VERIFY_TOKEN = config('META_VERIFY_TOKEN')
-META_API_VERSION = config('META_API_VERSION')
+META_ACCESS_TOKEN = config('META_ACCESS_TOKEN', default='')
+META_PHONE_NUMBER_ID = config('META_PHONE_NUMBER_ID', default='')
+META_VERIFY_TOKEN = config('META_VERIFY_TOKEN', default='')
+META_API_VERSION = config('META_API_VERSION', default='')
+
+# Standalone LangGraph research service (langgraph-service/)
+LANGGRAPH_SERVICE_URL = config('LANGGRAPH_SERVICE_URL', default='')
+LANGGRAPH_SERVICE_API_KEY = config('LANGGRAPH_SERVICE_API_KEY', default='')
+LANGGRAPH_SERVICE_TIMEOUT = config('LANGGRAPH_SERVICE_TIMEOUT', default=120, cast=int)
+
 
 
 ################ Logging #####################
+_LOG_HANDLERS = ['console', 'file'] if DEBUG else ['console']
 LOGGING = {
     "version": 1,  # the dictConfig format version
     "disable_existing_loggers": False,  # retain the default loggers
     "handlers": {
         "file": {
             "class": "logging.FileHandler",
-            "filename": "general.log",
+            "filename": str(BASE_DIR / "general.log"),
             "formatter": "verbose",
             "level": "DEBUG",
         },
@@ -235,7 +256,7 @@ LOGGING = {
     "loggers": {
         "": {
             "level": "DEBUG",
-            "handlers": ["file"],
+            "handlers": _LOG_HANDLERS,
         },
     },
     "formatters": {
