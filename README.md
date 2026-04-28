@@ -2,7 +2,6 @@
 
 **AI-native learning platform** — turn documents, research, and **MCP conversation imports** into **subjects, topics, instructional bites, and quizzes**, with **RAG-backed chat** over your sources and **AWS Bedrock** for generation.
 
-Capstone for **Andela**’s *Forward-Deployed Engineering* / AI engineering bootcamp track: a multi-surface system designed for real deployment patterns (containers, env-driven config, cloud data plane, async workers).
 
 ---
 
