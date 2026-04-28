@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api, { formatApiError } from '@/api.js'
+import MarkdownBlock from '@/components/MarkdownBlock.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -127,14 +128,17 @@ watch(categoryId, load)
             :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
           >
             <div
-              class="max-w-[85%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap"
+              class="max-w-[85%] rounded-2xl px-4 py-2 text-sm"
               :class="
                 m.role === 'user'
                   ? 'bg-indigo-600 text-white'
                   : 'border border-slate-200 bg-slate-50 text-slate-800'
               "
             >
-              {{ m.content }}
+              <template v-if="m.role === 'user'">
+                <p class="whitespace-pre-wrap">{{ m.content }}</p>
+              </template>
+              <MarkdownBlock v-else :content="m.content" />
             </div>
           </div>
           <p v-if="!messages.length" class="text-center text-sm text-slate-500">Send a message to start.</p>

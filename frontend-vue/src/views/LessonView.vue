@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import api, { formatApiError } from '@/api.js'
+import MarkdownBlock from '@/components/MarkdownBlock.vue'
 
 const route = useRoute()
 const subjectId = computed(() => Number(route.params.id))
@@ -107,9 +108,7 @@ watch(topicIdForCurrentBite, async (tid) => {
       <div v-else class="mt-8 space-y-4">
         <div v-if="currentBite" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <p class="text-sm font-medium text-slate-500">{{ currentBite.name }}</p>
-          <div class="mt-2 max-w-none whitespace-pre-wrap text-sm text-slate-800">
-            {{ currentBite.bite }}
-          </div>
+          <MarkdownBlock class="mt-2 max-w-none text-sm text-slate-800" :content="currentBite.bite" />
         </div>
         <p v-else class="text-sm text-slate-600">Loading bite content…</p>
 

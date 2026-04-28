@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api, { formatApiError } from '@/api.js'
 import { REVIEW_DEMO_DUE, isDemoReviewBite } from '@/constants/reviewDemoDue.js'
+import MarkdownBlock from '@/components/MarkdownBlock.vue'
 
 const items = ref([])
 const error = ref('')
@@ -105,7 +106,7 @@ onMounted(load)
         </div>
         <div class="px-5 py-4">
           <p class="font-medium text-slate-900">{{ row.bite_name }}</p>
-          <p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{{ row.bite_body }}</p>
+          <MarkdownBlock class="mt-2 text-sm leading-relaxed text-slate-700" :content="row.bite_body" />
           <p v-if="row.is_locked" class="mt-2 text-xs font-medium text-amber-800">Locked bite — edits preserved.</p>
         </div>
         <div class="flex flex-wrap gap-2 border-t border-violet-100/80 bg-slate-50/80 px-5 py-3">

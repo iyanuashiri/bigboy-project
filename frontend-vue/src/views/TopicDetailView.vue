@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import api, { formatApiError } from '@/api.js'
+import MarkdownBlock from '@/components/MarkdownBlock.vue'
 
 const route = useRoute()
 const topic = ref(null)
@@ -112,8 +113,8 @@ watch(topicId, load)
         when you regenerate. Unlocked bites are removed and rebuilt from the topic content.
       </div>
 
-      <div class="mt-6 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-sm">
-        {{ topic.content }}
+      <div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-sm">
+        <MarkdownBlock :content="topic.content" />
       </div>
 
       <aside

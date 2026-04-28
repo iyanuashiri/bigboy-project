@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api, { formatApiError } from '@/api.js'
+import MarkdownBlock from '@/components/MarkdownBlock.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -81,7 +82,7 @@ watch(researchId, load)
           class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
         >
           <h4 class="font-semibold text-slate-900">{{ b.title }}</h4>
-          <p class="mt-2 text-sm leading-relaxed text-slate-600 whitespace-pre-wrap">{{ b.body }}</p>
+          <MarkdownBlock class="mt-2 text-sm text-slate-700" :content="b.body" />
         </article>
       </div>
     </template>
