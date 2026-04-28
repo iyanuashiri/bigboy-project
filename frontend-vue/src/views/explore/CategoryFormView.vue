@@ -8,6 +8,12 @@ const description = ref('')
 const fileNames = ref([])
 const error = ref('')
 const loading = ref(false)
+const loadingLabel = ref('Uploading & naming…')
+const indexingProgress = ref('')
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function onFiles(e) {
   const files = e.target.files
@@ -16,25 +22,59 @@ function onFiles(e) {
 
 async function submit() {
   error.value = ''
+  indexingProgress.value = ''
   const files = document.getElementById('fl')?.files
   if (!files || !files.length) {
     error.value = 'Choose at least one document to upload.'
     return
   }
   loading.value = true
+  loadingLabel.value = 'Creating category…'
   try {
     const cat = await api.createDocumentCategory({
       description: description.value.trim(),
     })
+    loadingLabel.value = 'Uploading documents…'
     for (const f of Array.from(files)) {
       await api.uploadCategoryDocument(cat.id, f, f.name)
     }
-    const fresh = await api.getDocumentCategory(cat.id)
+    loadingLabel.value = 'Indexing documents for RAG…'
+    const deadline = Date.now() + 5 * 60 * 1000
+    let fresh = null
+    while (Date.now() < deadline) {
+      fresh = await api.getDocumentCategory(cat.id)
+      const docs = Array.isArray(fresh?.documents) ? fresh.documents : []
+      const indexed = docs.filter((d) => d.status === 'indexed').length
+      const failed = docs.filter((d) => d.status === 'failed')
+      indexingProgress.value = docs.length
+        ? `${indexed}/${docs.length} indexed`
+        : 'Waiting for uploaded documents…'
+      if (docs.length && indexed + failed.length >= docs.length) {
+        if (failed.length) {
+          const failedNames = failed.map((d) => d.original_name).join(', ')
+          const why = failed.find((d) => d.processing_error)?.processing_error || 'Indexing failed.'
+          throw new Error(`Indexing failed for: ${failedNames}. ${why}`)
+        }
+        break
+      }
+      await wait(2000)
+    }
+    if (!fresh) {
+      throw new Error('Could not verify indexing status. Please refresh and try again.')
+    }
+    const finalDocs = Array.isArray(fresh?.documents) ? fresh.documents : []
+    const stillPending = finalDocs.some((d) => d.status === 'uploaded' || d.status === 'processing')
+    if (!finalDocs.length || stillPending) {
+      throw new Error('Indexing is taking too long. Please wait a bit and refresh the category.')
+    }
+    loadingLabel.value = 'Opening chat…'
     await router.push({ name: 'explore-chats-detail', params: { categoryId: String(fresh.id) } })
   } catch (e) {
     error.value = formatApiError(e)
   } finally {
     loading.value = false
+    loadingLabel.value = 'Uploading & naming…'
+    indexingProgress.value = ''
   }
 }
 </script>
@@ -75,12 +115,13 @@ async function submit() {
         <p v-if="fileNames.length" class="mt-2 text-xs text-slate-500">{{ fileNames.join(', ') }}</p>
       </div>
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+      <p v-if="loading && indexingProgress" class="text-xs text-slate-500">{{ indexingProgress }}</p>
       <button
         type="submit"
         :disabled="loading"
         class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
       >
-        {{ loading ? 'Uploading & naming…' : 'Upload & open chat' }}
+        {{ loading ? loadingLabel : 'Upload & open chat' }}
       </button>
     </form>
   </div>
