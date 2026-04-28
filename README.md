@@ -181,6 +181,6 @@ uv run python manage.py test
 
 ## License / attribution
 
-This repository is the **BigBoy** capstone (Andela AI / Forward-Deployed Engineering). Use and extend per your team’s or course license terms.
+This repository is the **BigBoy**. Use and extend per your team’s or course license terms.
 
 **Repository:** [github.com/iyanuashiri/bigboy-project](https://github.com/iyanuashiri/bigboy-project)
