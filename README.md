@@ -18,15 +18,17 @@ Workplace and course knowledge lives in PDFs, tools, and chat threads. BigBoy **
 | 1 | **Web app** | Vue 3 + Vite + Tailwind; API client, Explore flows, markdown LLM output | `frontend-vue/` — build: `npm run build`. Deploy: **AWS Amplify** via root `amplify.yml` (`appRoot: frontend-vue`). |
 | 2 | **API & core domain** | Django REST: auth, subjects, sources (documents / research / **MCP imports**), RAG, chats, quizzes, reviews | `backend/` — `uv run gunicorn` / `manage.py`. **Docker:** `backend/Dockerfile` |
 | 3 | **AI workflow service** | LangGraph-style HTTP service (research / orchestration), callable from the API | `langgraph-service/` — Uvicorn. **Docker:** `langgraph-service/Dockerfile` |
-| 4 | **Infrastructure** | **AWS CDK** (IaC): VPC, RDS Postgres, **ECS Fargate** (Django + ALB, LangGraph + private discovery), **CloudFront**, **Amplify** app wiring. **Alternate path:** **App Runner** + ECR + VPC connector + scripts for `us-east-2` | `infra/` — see `infra/README.md` and `infra/bin/bigboy.ts` |
+| 4 | **MCP bridge service** | **Model Context Protocol** (stdio) server that **POSTs conversation imports** to the Django API (`/api/v1/mcp-imports/`) so Cursor, Claude Desktop, or other MCP hosts can push transcripts into Explore → Conversation imports | `mcp-service/` — `uv sync` then `uv run python main.py`. See [`mcp-service/README.md`](mcp-service/README.md). **Env:** `BIGBOY_API_BASE_URL`, `BIGBOY_API_TOKEN`. |
+| 5 | **Infrastructure** | **AWS CDK** (IaC): VPC, RDS Postgres, **ECS Fargate** (Django + ALB, LangGraph + private discovery), **CloudFront**, **Amplify** app wiring. **Alternate path:** **App Runner** + ECR + VPC connector + scripts for `us-east-2` | `infra/` — see `infra/README.md` and `infra/bin/bigboy.ts` |
 | — | **Async work** | Celery workers for background tasks (e.g. document indexing); **Redis** broker/result | Started with API in `backend/entrypoint.sh` in containerized deploys; or separate `celery` process locally. |
 
 **Data & AI (managed services):** PostgreSQL (Aurora/RDS or local SQLite for dev), **S3** for user media when configured, **Amazon Bedrock** for embeddings and LLM calls, **Redis** for Celery.
 
 ```mermaid
 flowchart LR
-  subgraph client [Client]
+  subgraph client [Clients]
     SPA[Vue / Amplify]
+    MCP[MCP hosts]
   end
   subgraph api [Backend]
     DJ[Django API]
@@ -36,12 +38,17 @@ flowchart LR
     LG[LangGraph service]
     BR[AWS Bedrock]
   end
+  subgraph bridge [Bridge]
+    MCPsrv[mcp-service stdio]
+  end
   subgraph data [Data]
     DB[(Postgres / SQLite)]
     S3[(S3 media)]
     RD[(Redis)]
   end
   SPA -->|REST| DJ
+  MCP --> MCPsrv
+  MCPsrv -->|REST Token auth| DJ
   DJ -->|tasks| CEL
   CEL --> RD
   CEL --> BR
@@ -55,8 +62,8 @@ flowchart LR
 
 ## Tech stack (high level)
 
-- **Language / runtime:** Python 3.12+ (Django, LangGraph service), Node 20+ (frontend build)
-- **Frameworks:** Django + DRF, Vue 3, LangChain / Bedrock integration, Celery
+- **Language / runtime:** Python 3.12+ (Django, LangGraph service, MCP bridge), Node 20+ (frontend build)
+- **Frameworks:** Django + DRF, Vue 3, LangChain / Bedrock integration, Celery; **MCP** (`mcp-service`) for external assistants pushing imports over REST
 - **Package / env:** `uv` (Python), `npm` (Vue)
 - **IaC & delivery:** **AWS CDK (TypeScript)**; **Amplify Hosting** for SPA; **ECS Fargate** or **App Runner** for APIs depending on deployment path; **ECR** for images
 
@@ -89,6 +96,7 @@ See `backend/entrypoint.sh` for the exact start sequence (migrations → Celery 
    - `backend`: `uv run python manage.py runserver` (+ Celery worker in another terminal if you use async indexing).  
    - `frontend-vue`: `npm run dev`.  
    - `langgraph-service`: run Uvicorn per that package’s `README` / `pyproject` scripts.
+   - `mcp-service`: `cd mcp-service && uv sync && uv run python main.py` (requires `BIGBOY_API_BASE_URL` + `BIGBOY_API_TOKEN`; see [`mcp-service/README.md`](mcp-service/README.md)).
 
 ---
 
@@ -122,6 +130,7 @@ Configuration is **12-factor** style via a repo-root `.env` (or platform env) an
 | **LangGraph service** | `LANGGRAPH_SERVICE_URL`, `LANGGRAPH_SERVICE_API_KEY`, `LANGGRAPH_SERVICE_TIMEOUT` |
 | **Comms (optional)** | `TWILIO_*`, `SENDGRID_API_KEY`, `META_*` |
 | **Frontend (Vite)** | `VITE_API_BASE_URL` (API base, include `/api/v1` as needed) — see [`frontend-vue/.env.example`](frontend-vue/.env.example) |
+| **MCP bridge (`mcp-service`)** | `BIGBOY_API_BASE_URL` (same shape as Vite: include `/api/v1`), `BIGBOY_API_TOKEN` (DRF token, same as `Authorization: Token …`) — see [`mcp-service/.env.example`](mcp-service/.env.example) |
 
 **S3 on AWS:** see also **[`backend/README.md`](backend/README.md)** for the App Runner + IAM flow and `infra/scripts/app-runner` usage.
 
@@ -151,6 +160,17 @@ npm run dev
 
 **LangGraph service** — install and run from `langgraph-service/` per its `pyproject.toml` and Dockerfile command (`uvicorn app.main:app` on port `8765` by default in the image).
 
+**MCP bridge** — from `mcp-service/`:
+
+```bash
+cd mcp-service
+cp .env.example .env   # set BIGBOY_API_BASE_URL and BIGBOY_API_TOKEN
+uv sync
+uv run python main.py
+```
+
+Wire this command into your MCP client (Cursor, Claude Desktop, etc.); details in [`mcp-service/README.md`](mcp-service/README.md).
+
 ---
 
 ## API documentation
@@ -175,6 +195,7 @@ uv run python manage.py test
 | Document | Content |
 |----------|--------|
 | [`backend/README.md`](backend/README.md) | Backend setup, Celery, S3, ngrok, API docs link |
+| [`mcp-service/README.md`](mcp-service/README.md) | MCP stdio server → Django `mcp-imports` API; env vars and Cursor config |
 | [`infra/README.md`](infra/README.md) | CDK stack, Amplify, ECS Fargate, **App Runner** alternative scripts |
 
 ---
