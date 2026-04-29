@@ -1,0 +1,15 @@
+[project]
+name = "mcp-service"
+version = "0.1.0"
+description = "MCP (Model Context Protocol) server that talks to the BigBoy Django API — push conversation imports from any MCP client."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27.0",
+    "mcp[cli]>=1.0.0",
+    "python-decouple>=3.8",
+]
+
+# Single-module script at repo root; not an installable package.
+[tool.uv]
+package = false
