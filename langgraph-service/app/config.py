@@ -24,10 +24,13 @@ def sync_langsmith_env_from_decouple() -> None:
         "LANGCHAIN_PROJECT",
         "LANGCHAIN_ENDPOINT",
         "LANGCHAIN_WORKSPACE_ID",
+
+        "LANGSMITH_SERVICE_URL",
+        "LANGSMITH_SERVICE_TIMEOUT",
         "LANGSMITH_API_KEY",
         "LANGSMITH_PROJECT",
         "LANGSMITH_ENDPOINT",
-        "LANGSMITH_TRACING",
+        "LANGSMITH_TRACING_V2",
     )
     for key in keys:
         raw = config(key, default="")
@@ -56,10 +59,17 @@ sync_langsmith_env_from_decouple()
 
 
 def bedrock_credentials_configured() -> bool:
-    return bool(
-        str(config("AWS_ACCESS_KEY_ID", default="")).strip()
-        and str(config("AWS_SECRET_ACCESS_KEY", default="")).strip()
-    )
+    if str(config("AWS_ACCESS_KEY_ID", default="")).strip() and str(
+        config("AWS_SECRET_ACCESS_KEY", default="")
+    ).strip():
+        return True
+    try:
+        import boto3
+
+        boto3.client("sts").get_caller_identity()
+        return True
+    except Exception:
+        return False
 
 
 class Settings(BaseSettings):

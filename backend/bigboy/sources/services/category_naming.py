@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 import re
 
-from decouple import config
+from django.conf import settings
 from django.db import transaction
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import ChatPromptTemplate
+
+from config.bedrock_client import aws_boto_client_kwargs
 
 from bigboy.sources.models import DocumentCategory
 from bigboy.sources.schemas_category import DocumentCategoryLabelSchema
@@ -21,10 +23,8 @@ _MAX_NAMES_LIST = 12
 
 def _bedrock_llm() -> ChatBedrock:
     return ChatBedrock(
-        model_id=config('BEDROCK_MODEL_ID', default='global.amazon.nova-2-lite-v1:0'),
-        region_name=config('AWS_REGION_NAME', default='us-east-2'),
-        aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'),
+        model_id=settings.BEDROCK_MODEL_ID,
+        **aws_boto_client_kwargs(),
     )
 
 

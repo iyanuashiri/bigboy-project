@@ -39,7 +39,8 @@ from bigboy.sources.api.v1.serializers import (
 )
 from bigboy.sources.services.langgraph_research import invoke_research_agent
 from bigboy.sources.services.promotion import promote_to_subject
-from bigboy.sources.services.rag import index_source_document, rag_reply_for_session
+from bigboy.sources.services.rag import rag_reply_for_session
+from bigboy.sources.tasks import index_source_document_task
 
 logger = logging.getLogger(__name__)
 
@@ -151,17 +152,24 @@ class SourceDocumentListCreateView(generics.ListCreateAPIView):
                 mime_type=mime[:120],
                 size_bytes=len(raw),
                 sha256=digest,
-                status=SourceDocument.ProcessingStatus.UPLOADED,
+                status=SourceDocument.ProcessingStatus.PROCESSING,
             )
             try:
-                index_source_document(doc)
+                index_source_document_task.delay(doc.id)
             except Exception as exc:  # noqa: BLE001
-                logger.exception('Document indexing failed')
+                logger.exception('Document indexing enqueue failed')
                 doc.status = SourceDocument.ProcessingStatus.FAILED
-                doc.processing_error = str(exc)[:2000]
+                doc.processing_error = f'Could not enqueue indexing task: {exc}'[:2000]
                 doc.save(update_fields=['status', 'processing_error', 'updated_at'])
             doc.refresh_from_db()
-            return Response(SourceDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
+            return Response(
+                SourceDocumentSerializer(doc).data,
+                status=(
+                    status.HTTP_202_ACCEPTED
+                    if doc.status != SourceDocument.ProcessingStatus.FAILED
+                    else status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+            )
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

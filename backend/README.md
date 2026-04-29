@@ -33,15 +33,28 @@
 
 ## Environment variables
 
-1. SECRET_KEY
-2. DATABASE_URL
-3. DEBUG
-4. TWILIO_ACCOUNT_SID
-5. TWILIO_AUTH_TOKEN
-6. TWILIO_SERVICE_SID
-7. SENDGRID_API_KEY
-8. REDIS_URL
-9. 
+All keys are loaded in **`config/settings.py`** (see the module docstring at the top of that file for the full list). Bedrock call sites use **`config/bedrock_client.py`** → **`aws_boto_client_kwargs()`** so credentials stay consistent with **`AWS_ACCESS_KEY_ID`** / **`AWS_SECRET_ACCESS_KEY`** (omit both on AWS to use the instance role).
+
+Highlights:
+
+### Optional: S3 for user uploads (media)
+
+When **`AWS_S3_MEDIA_BUCKET_NAME`** is set, **`DEFAULT`** file storage uses **S3** (`django-storages`). Otherwise uploads stay under **`MEDIA_ROOT`** on disk (fine for local dev).
+
+**App Runner:** from **`infra/scripts/app-runner`**, run **`.\s3-media-only.ps1`** (or **`.\03a-s3-media-bucket.ps1`**, same script) after **`02-iam-roles.ps1`**. If Django is **already** deployed, **`s3-media-only.ps1`** updates **`state.json`** and calls **`update-service`** to set **`AWS_S3_MEDIA_BUCKET_NAME`** / **`AWS_S3_REGION_NAME`** when **`DjangoServiceArn`** is in **`state.json`**. For **new** services from scratch, **`06-apprunner-django.ps1`** injects those vars if **`MediaBucketName`** is already in state. See **`infra/scripts/app-runner/README.md`**.
+
+| Variable | Purpose |
+|----------|---------|
+| **`AWS_S3_MEDIA_BUCKET_NAME`** | If non-empty, enables S3 media storage. |
+| **`AWS_S3_REGION_NAME`** | S3 bucket region (defaults to **`AWS_REGION_NAME`** or **`us-east-2`**). |
+| **`AWS_S3_MEDIA_LOCATION`** | Optional key prefix inside the bucket (no leading/trailing slashes). |
+| **`AWS_S3_CUSTOM_DOMAIN`** | Optional CloudFront or vanity hostname for **`MEDIA_URL`** (e.g. `d111111abcdef8.cloudfront.net`). |
+| **`AWS_S3_ENDPOINT_URL`** | Optional custom S3-compatible endpoint (e.g. LocalStack). |
+| **`AWS_ACCESS_KEY_ID`** / **`AWS_SECRET_ACCESS_KEY`** | Optional; on **App Runner** omit these and grant **`s3:GetObject`**, **`s3:PutObject`**, **`s3:DeleteObject`** on `arn:aws:s3:::YOUR_BUCKET/*` to the **instance role**. |
+
+`AWS_DEFAULT_ACL` is unset so buckets can use **Object Ownership** / private objects; the backend reads files via **`default_storage.open`** using IAM credentials.
+
+Other variables (Twilio, Postgres, LangGraph, Bedrock, etc.) are documented in code and the repo **`.env.example`**.
 
 
 ## How to run ngrok
@@ -56,6 +69,7 @@
 
 ## How to run celery
 1. uv run celery -A config.celery worker --loglevel=info --pool=solo
+2. Document upload indexing now runs asynchronously through Celery. Keep this worker running (plus Redis) for Explore → document uploads/RAG indexing.
 
 
 ## How to check the docs

@@ -6,11 +6,13 @@ import io
 import logging
 import math
 
-from decouple import config
+from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db import transaction
 from langchain_aws import BedrockEmbeddings, ChatBedrock
 from pypdf import PdfReader
+
+from config.bedrock_client import aws_boto_client_kwargs
 
 from bigboy.sources.models import DocumentChunk, DocumentChatMessage, DocumentChatSession, SourceDocument
 from bigboy.sources.services.category_naming import try_autoname_category_after_index
@@ -24,22 +26,16 @@ MAX_HISTORY_CHARS = 6000
 
 
 def _bedrock_embeddings() -> BedrockEmbeddings:
-    model_id = config('BEDROCK_EMBEDDING_MODEL_ID', default='amazon.titan-embed-text-v2:0')
     return BedrockEmbeddings(
-        model_id=model_id,
-        region_name=config('AWS_REGION_NAME', default='us-east-2'),
-        aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'),
+        model_id=settings.BEDROCK_EMBEDDING_MODEL_ID,
+        **aws_boto_client_kwargs(),
     )
 
 
 def _chat_bedrock() -> ChatBedrock:
-    model_id = config('BEDROCK_MODEL_ID', default='global.amazon.nova-2-lite-v1:0')
     return ChatBedrock(
-        model_id=model_id,
-        region_name=config('AWS_REGION_NAME', default='us-east-2'),
-        aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'),
+        model_id=settings.BEDROCK_MODEL_ID,
+        **aws_boto_client_kwargs(),
     )
 
 

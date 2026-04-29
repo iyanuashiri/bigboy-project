@@ -1,6 +1,8 @@
+from django.conf import settings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_aws import ChatBedrock
-from decouple import config
+
+from config.bedrock_client import aws_boto_client_kwargs
 
 from bigboy.subjects.schemas import (
     CurriculumOutlineSchema,
@@ -11,10 +13,8 @@ from bigboy.subjects.schemas import (
 
 def _bedrock_llm():
     return ChatBedrock(
-        model_id='global.amazon.nova-2-lite-v1:0',
-        region_name='us-east-2',
-        aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'),
+        model_id=settings.BEDROCK_MODEL_ID,
+        **aws_boto_client_kwargs(),
     )
 
 
