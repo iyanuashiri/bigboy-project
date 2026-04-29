@@ -46,13 +46,4 @@ class TokenDestroyView(views.APIView):
     def post(self, request):
         logout_user(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-# class TotalUsersDetailAPIView(generics.GenericAPIView):
-#     queryset = Account.objects.all()
-#     permission_classes = (permissions.IsAuthenticated,)
-
-#     def get(self, request):
-#         total_users = self.queryset.count()
-#         data = {'total_users': total_users}
-#         return Response(data=data, status=status.HTTP_200_OK)
+        
