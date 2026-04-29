@@ -15,7 +15,7 @@ Workplace and course knowledge lives in PDFs, tools, and chat threads. BigBoy **
 
 | # | System | Role | Path / entry |
 |---|--------|------|----------------|
-| 1 | **Web app** | Vue 3 + Vite + Tailwind; API client, Explore flows, markdown LLM output | `frontend-vue/` — build: `npm run build`. Deploy: **AWS Amplify** via root `amplify.yml` (`appRoot: frontend-vue`). |
+| 1 | **Web app** | Vue 3 + Vite + Tailwind; API client, Explore flows, markdown LLM output | `frontend-vue/` — build: `npm run build`. Deploy: **AWS Amplify** via [`amplify.yml`](amplify.yml); Console, `VITE_API_BASE_URL`, and monorepo notes in [**AWS Amplify (frontend)**](#aws-amplify-frontend) below. |
 | 2 | **API & core domain** | Django REST: auth, subjects, sources (documents / research / **MCP imports**), RAG, chats, quizzes, reviews | `backend/` — `uv run gunicorn` / `manage.py`. **Docker:** `backend/Dockerfile` |
 | 3 | **AI workflow service** | LangGraph-style HTTP service (research / orchestration), callable from the API | `langgraph-service/` — Uvicorn. **Docker:** `langgraph-service/Dockerfile` |
 | 4 | **MCP bridge service** | **Model Context Protocol** (stdio) server that **POSTs conversation imports** to the Django API (`/api/v1/mcp-imports/`) so Cursor, Claude Desktop, or other MCP hosts can push transcripts into Explore → Conversation imports | `mcp-service/` — `uv sync` then `uv run python main.py`. See [`mcp-service/README.md`](mcp-service/README.md). **Env:** `BIGBOY_API_BASE_URL`, `BIGBOY_API_TOKEN`. |
@@ -78,7 +78,20 @@ flowchart LR
 
 See `backend/entrypoint.sh` for the exact start sequence (migrations → Celery → Gunicorn).
 
-**Frontend** is a static Vite build (no production Node server in-repo); Amplify runs `npm ci` / `npm run build` per `amplify.yml`.
+**Frontend** is a static Vite build (no production Node server in-repo); Amplify runs `npm ci` / `npm run build` per [`amplify.yml`](amplify.yml).
+
+---
+
+## AWS Amplify (frontend)
+
+| Topic | Details |
+|--------|---------|
+| **Build spec** | Repo-root [`amplify.yml`](amplify.yml): `appRoot: frontend-vue`, `npm ci`, `npm run build`, artifacts from `frontend-vue/dist`. |
+| **Monorepo flag** | If the Amplify app is created via **CDK** ([`infra/README.md`](infra/README.md)), set **`AMPLIFY_MONOREPO_APP_ROOT=frontend-vue`** in the Amplify app’s environment variables so Hosting runs the build from the Vue package. |
+| **API URL for the SPA** | In **Amplify Console** → *App settings* → *Environment variables*, set **`VITE_API_BASE_URL`** to your backend base **including `/api/v1`** (no trailing slash), same shape as [`frontend-vue/.env.example`](frontend-vue/.env.example). With the **CDK** stack, use the **CloudFront** URL in front of the API ALB (see CDK outputs / `infra/README.md`). |
+| **Where to open the app** | **[AWS Amplify Console](https://console.aws.amazon.com/amplify)** → your app → *Hosting* — default URL pattern `https://main.<branch>.amplifyapp.com` (plus optional custom domain under *Domain management*). |
+
+**Docs:** [Amplify Hosting user guide](https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html) · [Environment variables](https://docs.aws.amazon.com/amplify/latest/userguide/environment-variables.html) · [Monorepo configuration](https://docs.aws.amazon.com/amplify/latest/userguide/monorepo-configuration.html)
 
 ---
 
@@ -86,6 +99,7 @@ See `backend/entrypoint.sh` for the exact start sequence (migrations → Celery 
 
 1. **CDK stack (full cloud reference architecture)**  
    - **Amplify** for the SPA, **CloudFront** in front of the API ALB, **ECS Fargate** for Django and LangGraph, **RDS** in private/isolated layout.  
+   - Wire the SPA to the API: set **`VITE_API_BASE_URL`** in Amplify to the **CloudFront** API URL (with `/api/v1`).  
    - See **`infra/README.md`** and deploy from `infra/` with `npx cdk deploy`.
 
 2. **App Runner + PowerShell (alternative, e.g. `us-east-2`)**  
@@ -196,7 +210,8 @@ uv run python manage.py test
 |----------|--------|
 | [`backend/README.md`](backend/README.md) | Backend setup, Celery, S3, ngrok, API docs link |
 | [`mcp-service/README.md`](mcp-service/README.md) | MCP stdio server → Django `mcp-imports` API; env vars and Cursor config |
-| [`infra/README.md`](infra/README.md) | CDK stack, Amplify, ECS Fargate, **App Runner** alternative scripts |
+| [`amplify.yml`](amplify.yml) | Amplify Hosting build: `frontend-vue`, `npm ci` / `npm run build` |
+| [`infra/README.md`](infra/README.md) | CDK stack, Amplify app + **CloudFront** API URL for `VITE_API_BASE_URL`, ECS Fargate, **App Runner** alternative scripts |
 
 ---
 
